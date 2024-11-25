@@ -355,31 +355,28 @@ class GEVnonstat:
             aux_neps0 = np.zeros(3*auxnind_loc+1)
             ### Starting Covariates iterative process
             #for i in range(self.niter_harm +1, self.niter_harm+2*auxnind_loc+1):
-            for i in tqdm(range(self.niter_harm +1, self.niter_harm+3*auxnind_loc+1), desc="Covariate Iteration"):
-                auxvarphi_loc = np.zeros(auxnind_loc)
-                if len(list_loc) > 0:
-                    auxvarphi_loc[list_loc] = varphi
-                auxvarphi_sc = np.zeros(auxnind_sc)
-                if len(list_sc) > 0:
-                    auxvarphi_sc[list_sc] = varphi2
+            for i in tqdm(range(auxnind_loc),
+                          desc="Shape Covariate Iteration"):
                 auxvarphi_sh = np.zeros(auxnind_sh)
                 if len(list_sh) > 0:
                     auxvarphi_sh[list_sh] = varphi3
 
-                ### Step 9: Calculate the sensitivities of the optimal log-likelihood objective function with respect to possible 
+                ### Step 9: Calculate the sensitivities of the optimal log-likelihood objective function with respect to possible
                 # additional covariates for the location and  scale parameters
                 self.neps0 = 1
-                auxf, auxJx, auxHxx = self._loglikelihood(beta0,beta,alpha0,alpha,1e-5,gamma,betaT,auxvarphi_loc,betaT2,auxvarphi_sc,auxvarphi_sh,self.covariates,self.covariates,self.covariates)
+                auxf, auxJx, auxHxx = self._loglikelihood(beta0, beta, alpha0, alpha, 1e-5, gamma, betaT, None,
+                                                          betaT2, None, auxvarphi_sh, None,
+                                                          None, self.covariates)
 
                 # Step 10: Include in the parameter vector the corresponding covariate
                 auxI0 = -auxHxx
-                values1 = np.abs(auxJx[1+2*nmu+ntend_loc : 1+2*nmu+ntend_loc+auxnind_loc]**2 / np.diag(auxI0[1+2*nmu+ntend_loc : 1+2*nmu+ntend_loc+auxnind_loc, 1+2*nmu+ntend_loc: 1+2*nmu+ntend_loc+auxnind_loc]))
-                maximo_loc, pos_loc = np.max(values1), np.argmax(values1)
 
-                values2 = np.abs(auxJx[2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc : 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc]**2 / np.diag(auxI0[2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc : 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc, 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc : 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc]))
-                maximo_sc, pos_sc = np.max(values2), np.argmax(values2)
+                values3 = np.abs(auxJx[
+                                 2 + self.neps0 + 2 * nmu + ntend_loc + 2 * npsi + ntend_sc + 2 * neps: 2 + self.neps0 + 2 * nmu + ntend_loc + 2 * npsi + ntend_sc + 2 * neps + auxnind_sh] ** 2 / np.diag(
+                    auxI0[
+                    2 + self.neps0 + 2 * nmu + ntend_loc + 2 * npsi + ntend_sc + 2 * neps: 2 + self.neps0 + 2 * nmu + ntend_loc + 2 * npsi + ntend_sc + 2 * neps + auxnind_sh,
+                    2 + self.neps0 + 2 * nmu + ntend_loc + 2 * npsi + ntend_sc + 2 * neps: 2 + self.neps0 + 2 * nmu + ntend_loc + 2 * npsi + ntend_sc + 2 * neps + auxnind_sh]))
 
-                values3 = np.abs(auxJx[2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps : 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps+auxnind_sh]**2 / np.diag(auxI0[2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps : 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps+auxnind_sh, 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps : 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps+auxnind_sh]))
                 maximo_sh, pos_sh = np.max(values3), np.argmax(values3)
 
                 if varphi is not None:
@@ -395,35 +392,132 @@ class GEVnonstat:
                 else:
                     varphiini_sh = []
 
-                posmaxparam = np.argmax([maximo_loc, maximo_sc, maximo_sh])
+
+                varphiini_sh = np.append(varphiini_sh, [0])
+                list_sh = np.append(list_sh, [int(pos_sh)]).astype(int)
+                nind_sh += 1
+
+                # if list_sh.size > 0:
+                auxcovariates_sh = self.covariates[:, list_sh]
+                if varphiini_sh is None:
+                    varphiini_sh = []
+
+                # Step 11: Obtain the maximum-likelihood estimators for the selected parameters and
+                # calculate the Akaike Information criterion objective function AIC
+                concatvalues = [popt[0:1 + 2 * nmu], varphiini_loc, popt[1 + 2 * nmu: 2 + 2 * nmu + 2 * npsi],
+                                varphiini_sc, np.zeros(self.neps0), np.zeros(2 * neps), varphiini_sh]
+                pini = np.concatenate([np.asarray(v) for v in concatvalues if v is not None])
+                beta0, beta, alpha0, alpha, gamma0, gamma, betaT, varphi, betaT2, varphi2, varphi3, loglikeobj, grad, hessian, _ = self._optimize_parameters(
+                    nmu, npsi, neps, betaT, auxcovariates_loc, np.zeros(nind_loc), betaT2, auxcovariates_sc,
+                    np.zeros(nind_sc), auxcovariates_sh, np.zeros(nind_sh), pini)
+
+                # Check if the model is Gumbel
+                # self.neps0 = 1
+                aux_neps0[i - self.niter_harm - 1] = 1
+                if gamma0 is None:
+                    aux_neps0[i - self.niter_harm - 1] = 0
+                elif np.abs(gamma0) <= 1e-8:  # Set the tolerance of being 0
+                    aux_neps0[i - self.niter_harm - 1] = 0
+
+                self.AICiter[i] = self._AIC(-loglikeobj, 2 + aux_neps0[
+                    i - self.niter_harm - 1] + 2 * nmu + 2 * npsi + 2 * neps + ntend_loc + nind_loc + ntend_sc + nind_sc + nind_sh)
+                self.loglikeiter[i] = -loglikeobj
+
+                # print(np.diag(auxI0[2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps : 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps+auxnind_sh, 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps : 2+self.neps0+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc+2*neps+auxnind_sh]))
+                # print(posmaxparam, pos_loc, self.AICiter[i], -loglikeobj)
+
+                if self.AICiter[i] < self.AICini:
+                    self.AICini = self.AICiter[i]
+
+                    # Update results if the AIC obtained is less than the previous
+                    self.neps0 = int(aux_neps0[i - self.niter_harm - 1])
+                    self.beta0 = beta0
+                    self.beta = beta
+                    self.alpha0 = alpha0
+                    self.alpha = alpha
+                    self.gamma0 = gamma0
+                    self.gamma = gamma
+                    self.betaT = betaT
+                    self.betaT2 = betaT2
+                    self.varphi = varphi
+                    self.varphi2 = varphi2
+                    self.varphi3 = varphi3
+                    self.list_loc = list_loc
+                    self.list_sc = list_sc
+                    self.list_sh = list_sh
+                    self.nmu = nmu
+                    self.npsi = npsi
+                    self.neps = neps
+                    self.popt = popt
+                else:
+                    list_sh = list_sh[:-1]
+                    varphi3 = varphi3[:-1]
+                    nind_sh -= 1
+
+                    self.niter_cov = i - self.niter_harm
+                    self.nit = i
+
+                    break
+
+                self.list_sh = list_sh
+
+
+            for i in tqdm(range(self.niter_harm +1, self.niter_harm+2*auxnind_loc+1), desc="Covariate Iteration"):
+                auxvarphi_loc = np.zeros(auxnind_loc)
+                if len(list_loc) > 0:
+                    auxvarphi_loc[list_loc] = varphi
+                auxvarphi_sc = np.zeros(auxnind_sc)
+                if len(list_sc) > 0:
+                    auxvarphi_sc[list_sc] = varphi2
+
+                ### Step 9: Calculate the sensitivities of the optimal log-likelihood objective function with respect to possible 
+                # additional covariates for the location and  scale parameters
+                self.neps0 = 1
+                auxf, auxJx, auxHxx = self._loglikelihood(beta0,beta,alpha0,alpha,1e-5,gamma,betaT,auxvarphi_loc,betaT2,auxvarphi_sc,np.zeros(nind_sh),self.covariates,self.covariates,self.covariates[:,self.list_sh])
+
+                # Step 10: Include in the parameter vector the corresponding covariate
+                auxI0 = -auxHxx
+                values1 = np.abs(auxJx[1+2*nmu+ntend_loc : 1+2*nmu+ntend_loc+auxnind_loc]**2 / np.diag(auxI0[1+2*nmu+ntend_loc : 1+2*nmu+ntend_loc+auxnind_loc, 1+2*nmu+ntend_loc: 1+2*nmu+ntend_loc+auxnind_loc]))
+                maximo_loc, pos_loc = np.max(values1), np.argmax(values1)
+
+                values2 = np.abs(auxJx[2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc : 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc]**2 / np.diag(auxI0[2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc : 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc, 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc : 2+2*nmu+ntend_loc+auxnind_loc+2*npsi+ntend_sc+auxnind_sc]))
+                maximo_sc, pos_sc = np.max(values2), np.argmax(values2)
+
+                if varphi is not None:
+                    varphiini_loc = varphi
+                else:
+                    varphiini_loc = []
+                if varphi2 is not None:
+                    varphiini_sc = varphi2
+                else:
+                    varphiini_sc = []
+                if varphi3 is not None:
+                    varphiini_sh = varphi3
+                else:
+                    varphiini_sh = []
+
+                posmaxparam = np.argmax([maximo_loc, maximo_sc])
 
                 if posmaxparam == 0:
                     #varphiini_loc = np.append(auxvarphi_loc[list_loc], [0])
                     varphiini_loc = np.append(varphiini_loc, [0])
                     list_loc = np.append(list_loc, [int(pos_loc)]).astype(int)
                     nind_loc += 1
-                elif posmaxparam == 1:
+                else:
                     #varphiini_sc = np.append(auxvarphi_sc[list_sc], [0])
                     varphiini_sc = np.append(varphiini_sc, [0])
                     list_sc = np.append(list_sc, [int(pos_sc)]).astype(int)
                     nind_sc += 1
-                else:
-                    varphiini_sh = np.append(varphiini_sh, [0])
-                    list_sh = np.append(list_sh, [int(pos_sh)]).astype(int)
-                    nind_sh += 1
 
                 #if list_loc.size > 0:
                 auxcovariates_loc = self.covariates[:, list_loc]
                 #if list_sc.size > 0:
                 auxcovariates_sc = self.covariates[:, list_sc]
-                #if list_sh.size > 0:
-                auxcovariates_sh = self.covariates[:, list_sh]
                 if varphiini_loc is None:
                     varphiini_loc = []
                 if varphiini_sc is None:
                     varphiini_sc = []
-                if varphiini_sh is None:
-                    varphiini_sh = []
+
                 
                 
 
@@ -431,7 +525,7 @@ class GEVnonstat:
                 # calculate the Akaike Information criterion objective function AIC
                 concatvalues = [popt[0:1 + 2 * nmu], varphiini_loc, popt[1 + 2 * nmu : 2 + 2 * nmu + 2 * npsi], varphiini_sc, np.zeros(self.neps0), np.zeros(2 * neps), varphiini_sh]
                 pini = np.concatenate([np.asarray(v) for v in concatvalues if v is not None])
-                beta0,beta,alpha0,alpha,gamma0,gamma,betaT,varphi,betaT2,varphi2,varphi3,loglikeobj,grad,hessian,_ = self._optimize_parameters(nmu,npsi,neps,betaT,auxcovariates_loc,np.zeros(nind_loc),betaT2,auxcovariates_sc,np.zeros(nind_sc),auxcovariates_sh,np.zeros(nind_sh),pini)
+                beta0,beta,alpha0,alpha,gamma0,gamma,betaT,varphi,betaT2,varphi2,varphi3,loglikeobj,grad,hessian,_ = self._optimize_parameters(nmu,npsi,neps,betaT,auxcovariates_loc,np.zeros(nind_loc),betaT2,auxcovariates_sc,np.zeros(nind_sc),self.covariates[:,self.list_sh],np.zeros(nind_sh),pini)
 
                 # Check if the model is Gumbel
                 # self.neps0 = 1
@@ -480,10 +574,6 @@ class GEVnonstat:
                         list_sc = list_sc[:-1]
                         varphi2 = varphi2[:-1]
                         nind_sc -= 1
-                    else:
-                        list_sh = list_sh[:-1]
-                        varphi3 = varphi3[:-1]
-                        nind_sh -= 1
 
                     self.niter_cov = i - self.niter_harm
                     self.nit = i
