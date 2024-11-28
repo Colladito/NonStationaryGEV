@@ -1631,7 +1631,7 @@ class GEVnonstat:
         # Sub-block added by Victor, gamma0*varphi3_i
         if nind_sh > 0 and self.neps0 == 1:
             for i in range(nind_sh):
-                Hxx[2+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+i,2+nmu+npsi+ntend_loc+nind_loc+ntend_sc+nind_sc] = np.sum(D2epst*covariates_sh[:,i])
+                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+i,2+nmu+npsi+ntend_loc+nind_loc+ntend_sc+nind_sc] = np.sum(D2epst*covariates_sh[:,i])
 
         
         if nmu > 0: 
@@ -1700,7 +1700,7 @@ class GEVnonstat:
                         for k, tt in enumerate(self.t):
                             aux += Dmutepst[k]*covariates_sh[k,j]*self._Dparam(tt, i+1)
                         # Sub-block added by Victor, beta_j*varphi3_i
-                        Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+j,1+i] = aux
+                        Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+j,1+i] = aux
         if npsi > 0:
             for i in range(npsi):
                 aux = 0
@@ -1749,7 +1749,7 @@ class GEVnonstat:
                         for k, tt in enumerate(self.t):
                             aux += Dpsitepst[k]*covariates_sh[k,j]*self._Dparam(tt,i+1)*psit[k]
                         # Sub-block added by Victor (scale exponential involved), alpha_i*varphi3_j
-                        Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+j,2+nmu+ntend_loc+nind_loc+i]=aux
+                        Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+j,2+nmu+ntend_loc+nind_loc+i]=aux
         if neps > 0:
             for i in range(neps):
                 # First element associated to the constant value (first column)
@@ -1845,10 +1845,10 @@ class GEVnonstat:
         if nind_sh > 0 and ntend_loc >0:
             for i in range(nind_sh):
                 aux = 0
-                for k, t in enumerate(self.t):
+                for k, tt in enumerate(self.t):
                     aux += Dmutepst[k]*tt*covariates_sh[k,i]
                 # Sub-block added by Victor, betaT*varphi3_i
-                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+j, 1+nmu] = aux
+                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+i, 1+nmu] = aux
         if ntend_sc > 0:
             for i in range(npsi):
                 aux = 0 
@@ -1892,15 +1892,15 @@ class GEVnonstat:
         if nind_sh > 0:
             for i in range(nind_sh):
                 # Sub-block added by Victor, beta0*varphi3_i
-                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+i, 0] = np.sum(Dmutepst*covariates_sh[:,i])
+                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+i, 0] = np.sum(Dmutepst*covariates_sh[:,i])
                 # Sub-block added by Victor (scale exponential involved), alpha0*varphi3_i
-                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+i, 1+nmu+ntend_loc+nind_loc] = np.sum(Dpsitepst*psit*covariates_sh[:,i])
+                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+i, 1+nmu+ntend_loc+nind_loc] = np.sum(Dpsitepst*psit*covariates_sh[:,i])
 
                 aux = 0
                 for k, tt in enumerate(self.t):
                     aux += Dpsitepst[k]*tt*covariates_sh[k,i]*psit[k]
                 # Sub-bloc added by Victor (scale exponential involved), betaT2*varphi3_i
-                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+i, 1+nmu+npsi+ntend_loc+nind_loc]  = aux
+                Hxx[2+self.neps0+nmu+npsi+neps+ntend_loc+nind_loc+ntend_sc+nind_sc+i, 1+nmu+npsi+ntend_loc+nind_loc]  = aux
 
         # Simmetric part of the Hessian
         Hxx = Hxx + np.tril(Hxx, -1).T
@@ -2048,6 +2048,7 @@ class GEVnonstat:
             varphi = None
             cov_sc = None
             varphi2 = None
+            cov_sh = None
             varphi3 = None
         else:
             betaT = self.betaT
